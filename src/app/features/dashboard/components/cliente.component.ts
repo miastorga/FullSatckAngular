@@ -1,6 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Equipo, EquiposService } from '../../../services/equipos.service';
 
 interface OrdenReparacion {
   id: string;
@@ -167,23 +168,46 @@ interface OrdenReparacion {
             <p>Aquí se muestra el estado actual de tus órdenes de reparación.</p>
             <div class="table-responsive">
               <table class="table table-striped table-hover">
-                <thead>
-                  <tr>
-                    <th scope="col"># Orden</th>
-                    <th scope="col">Equipo</th>
-                    <th scope="col">Problema</th>
-                    <th scope="col">Estado</th>
-                    <th scope="col">Fecha Estimada</th>
-                  </tr>
-                </thead>
+              <thead>
+                <tr>
+                  <th scope="col"># Orden</th>
+                  <th scope="col">Equipo</th>
+                  <th scope="col">Problema</th>
+                  <th scope="col">Estado</th>
+                  <th scope="col">Fecha Estimada</th>
+                  <th scope="col">Acciones</th>
+                </tr>
+              </thead>
                 <tbody>
-                  <tr *ngFor="let orden of ordenesReparacion">
-                    <td>{{ orden.id }}</td>
-                    <td>{{ orden.equipo }}</td>
-                    <td>{{ orden.problema }}</td>
-                    <td><span class="badge" [ngClass]="orden.estadoBadgeClass">{{ orden.estado }}</span></td>
-                    <td>{{ orden.fechaEstimada }}</td>
-                  </tr>
+                  @if(loading){
+                    <tr>
+                      <td colspan="5" class="text-center">Cargando...</td>
+                    </tr>
+                  }@else{
+                    @if(ordenesReparacion.length === 0){
+                      <tr>
+                        <td colspan="5" class="text-center">No hay órdenes de reparación</td>
+                      </tr>
+                    }@else{
+                      <tr *ngFor="let orden of ordenesReparacion.slice(0,2); trackBy: trackByOrderId">
+                        <td>{{ orden.id }}</td>
+                        <td>{{ orden.equipo }}</td>
+                        <td>{{ orden.problema }}</td>
+                        <td><span class="badge" [ngClass]="orden.estadoBadgeClass">{{ orden.estado }}</span></td>
+                        <td>{{ orden.fechaEstimada }}</td>
+                        <td>
+                          <button class="btn btn-sm btn-outline-primary me-1" (click)="abrirModalEditarOrden(orden)" title="Editar">
+                            <i class="fas fa-edit"></i>
+                            Editar
+                          </button>
+                          <button class="btn btn-sm btn-outline-danger" (click)="eliminarOrden(orden.id)" title="Eliminar">
+                            <i class="fas fa-trash"></i>
+                            Eliminar
+                          </button>
+                        </td>
+                      </tr>
+                    }
+                  }
                 </tbody>
               </table>
             </div>
@@ -270,6 +294,106 @@ interface OrdenReparacion {
       </div>
     </div>
 
+    <div class="modal fade" [class.show]="mostrarModalEditarOrden" [style.display]="mostrarModalEditarOrden ? 'block' : 'none'"
+     tabindex="-1" role="dialog" (click)="cerrarModalEditarOrden($event)">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Editar Orden de Reparación</h5>
+        <button type="button" class="btn-close" (click)="cerrarModalEditarOrden()"></button>
+      </div>
+      <div class="modal-body">
+        <form #formEditarOrden="ngForm" (ngSubmit)="actualizarOrden(formEditarOrden)" *ngIf="ordenEditando">
+          <div class="mb-3">
+            <label for="editEquipo" class="form-label">Equipo *</label>
+            <input
+              type="text"
+              class="form-control"
+              [class.is-invalid]="editEquipoField.invalid && editEquipoField.touched"
+              [class.is-valid]="editEquipoField.valid && editEquipoField.touched"
+              id="editEquipo"
+              name="editEquipo"
+              #editEquipoField="ngModel"
+              [(ngModel)]="ordenEditando.equipo"
+              required
+              minlength="3">
+            @if(editEquipoField.invalid && editEquipoField.touched){
+              <div class="invalid-feedback">
+                {{ getFieldErrorDirect(editEquipoField, 'Equipo') }}
+              </div>
+            }
+          </div>
+
+          <div class="mb-3">
+            <label for="editProblema" class="form-label">Problema *</label>
+            <textarea
+              class="form-control"
+              [class.is-invalid]="editProblemaField.invalid && editProblemaField.touched"
+              [class.is-valid]="editProblemaField.valid && editProblemaField.touched"
+              id="editProblema"
+              name="editProblema"
+              #editProblemaField="ngModel"
+              [(ngModel)]="ordenEditando.problema"
+              rows="3"
+              required
+              minlength="10"></textarea>
+            @if(editProblemaField.invalid && editProblemaField.touched){
+              <div class="invalid-feedback">
+                {{ getFieldErrorDirect(editProblemaField, 'Problema') }}
+              </div>
+            }
+          </div>
+
+          <div class="mb-3">
+            <label for="editEstado" class="form-label">Estado *</label>
+            <select
+              class="form-select"
+              [class.is-invalid]="editEstadoField.invalid && editEstadoField.touched"
+              [class.is-valid]="editEstadoField.valid && editEstadoField.touched"
+              id="editEstado"
+              name="editEstado"
+              #editEstadoField="ngModel"
+              [(ngModel)]="ordenEditando.estado"
+              required>
+              <option value="">Selecciona un estado...</option>
+              <option value="Recibido">Recibido</option>
+              <option value="En Diagnóstico">En Diagnóstico</option>
+              <option value="En Reparación">En Reparación</option>
+              <option value="Listo para Retiro">Listo para Retiro</option>
+              <option value="Entregado">Entregado</option>
+            </select>
+            @if(editEstadoField.invalid && editEstadoField.touched){
+              <div class="invalid-feedback">
+                {{ getFieldErrorDirect(editEstadoField, 'Estado') }}
+              </div>
+            }
+          </div>
+
+          <div class="mb-3">
+            <label for="editMonto" class="form-label">Monto (CLP)</label>
+            <div class="input-group">
+              <span class="input-group-text">$</span>
+              <input
+                type="number"
+                class="form-control"
+                id="editMonto"
+                name="editMonto"
+                [(ngModel)]="ordenEditando.monto"
+                min="0">
+              <span class="input-group-text">CLP</span>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" (click)="cerrarModalEditarOrden()">Cancelar</button>
+            <button type="submit" class="btn btn-primary" [disabled]="!formEditarOrden.valid">Actualizar Orden</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
     <!-- Modal Backdrop -->
     <div class="modal-backdrop fade" 
          [class.show]="mostrarModalCrearOrden || mostrarModalConsultarEstado || mostrarModalSimularPagos"
@@ -308,7 +432,6 @@ interface OrdenReparacion {
       overflow-y: auto;
     }
 
-    /* Estilos para campos válidos e inválidos */
     .form-control.is-invalid,
     .form-select.is-invalid {
       border-color: #dc3545;
@@ -338,12 +461,15 @@ interface OrdenReparacion {
     }
   `]
 })
-export class DashboardClienteComponent {
+export class DashboardClienteComponent implements OnInit {
+
   nombreCliente: string = '[Nombre del Cliente]';
 
   mostrarModalCrearOrden = false;
   mostrarModalConsultarEstado = false;
   mostrarModalSimularPagos = false;
+  equiposService = inject(EquiposService);
+  loading = false;
 
   nuevaOrden = {
     tipoEquipo: '',
@@ -356,41 +482,60 @@ export class DashboardClienteComponent {
     monto: null as number | null
   };
 
-  ordenesReparacion: OrdenReparacion[] = [
-    {
-      id: 'ORD-001',
-      equipo: 'iPhone 12',
-      problema: 'Pantalla rota',
-      estado: 'En Diagnóstico',
-      fechaEstimada: '10/07/2025',
-      estadoBadgeClass: 'bg-warning text-dark',
-      monto: 85000
-    },
-    {
-      id: 'ORD-002',
-      equipo: 'Samsung S20',
-      problema: 'Problema de batería',
-      estado: 'En Reparación',
-      fechaEstimada: '15/07/2025',
-      estadoBadgeClass: 'bg-info text-dark',
-      monto: 65000
-    },
-    {
-      id: 'ORD-003',
-      equipo: 'Xiaomi Redmi',
-      problema: 'No enciende',
-      estado: 'Listo para Retiro',
-      fechaEstimada: '08/07/2025',
-      estadoBadgeClass: 'bg-success',
-      monto: 50000
-    }
-  ];
+  ordenesReparacion: Equipo[] = [];
 
-  get ordenesPendientes(): OrdenReparacion[] {
+  get ordenesPendientes(): Equipo[] {
     return this.ordenesReparacion.filter(orden =>
       orden.estado === 'Listo para Retiro' ||
       orden.estado === 'En Diagnóstico'
     );
+  }
+
+  ngOnInit(): void {
+    this.loadEquipos();
+  }
+
+  loadEquipos(): void {
+    this.loading = true;
+    this.equiposService.getEquipos().subscribe({
+      next: (equipos) => {
+        this.ordenesReparacion = equipos;
+        this.loading = false;
+      },
+      error: (error) => {
+        console.error('Error cargando equipos:', error);
+        this.loading = false;
+      }
+    });
+  }
+
+  crearOrden(form: any): void {
+    if (form.valid) {
+      const nuevoEquipo: Equipo = {
+        id: '', // Se asignará en el servidor
+        equipo: `${this.nuevaOrden.tipoEquipo} ${this.nuevaOrden.marcaModelo}`,
+        problema: this.nuevaOrden.descripcionProblema,
+        estado: 'Recibido',
+        fechaEstimada: this.calcularFechaEstimada(),
+        estadoBadgeClass: 'bg-secondary',
+        monto: Math.floor(Math.random() * 100000) + 30000
+      };
+
+      this.equiposService.createEquipo(nuevoEquipo).subscribe({
+        next: (equipoCreado) => {
+          this.ordenesReparacion.push(equipoCreado);
+          alert(`¡Orden creada exitosamente! Número: ${equipoCreado.id}`);
+          this.cerrarModalCrearOrden();
+        },
+        error: (error) => {
+          console.error('Error creando orden:', error);
+          alert('Error al crear la orden. Intenta nuevamente.');
+        }
+      });
+    } else {
+      this.markAllFieldsTouched(form);
+      alert('Por favor, corrige los errores en el formulario.');
+    }
   }
 
   getFieldErrorDirect(field: any, fieldName: string): string {
@@ -409,7 +554,6 @@ export class DashboardClienteComponent {
     return '';
   }
 
-  // Método auxiliar para marcar todos los campos como tocados
   private markAllFieldsTouched(form: any): void {
     Object.keys(form.controls).forEach(key => {
       const control = form.controls[key];
@@ -448,6 +592,60 @@ export class DashboardClienteComponent {
     this.mostrarModalConsultarEstado = false;
   }
 
+  mostrarModalEditarOrden = false;
+  ordenEditando: Equipo | null = null;
+
+  abrirModalEditarOrden(orden: Equipo): void {
+    this.ordenEditando = { ...orden };
+    this.mostrarModalEditarOrden = true;
+  }
+
+  cerrarModalEditarOrden(event?: Event): void {
+    if (event && event.target !== event.currentTarget) {
+      return;
+    }
+    this.mostrarModalEditarOrden = false;
+    this.ordenEditando = null;
+  }
+
+  actualizarOrden(form: any): void {
+    if (form.valid && this.ordenEditando) {
+      this.equiposService.updateEquipo(this.ordenEditando.id, this.ordenEditando).subscribe({
+        next: (equipoActualizado) => {
+          const index = this.ordenesReparacion.findIndex(o => o.id === equipoActualizado.id);
+          if (index !== -1) {
+            this.ordenesReparacion[index] = equipoActualizado;
+          }
+          alert('Orden actualizada exitosamente!');
+          this.cerrarModalEditarOrden();
+        },
+        error: (error) => {
+          console.error('Error actualizando orden:', error);
+          alert('Error al actualizar la orden. Intenta nuevamente.');
+        }
+      });
+    } else {
+      this.markAllFieldsTouched(form);
+      alert('Por favor, corrige los errores en el formulario.');
+    }
+  }
+
+  eliminarOrden(id: string): void {
+    if (confirm('¿Estás seguro de que deseas eliminar esta orden?')) {
+      this.equiposService.deleteEquipo(id).subscribe({
+        next: () => {
+          this.ordenesReparacion = this.ordenesReparacion.filter(o => o.id !== id);
+          alert('Orden eliminada exitosamente!');
+        },
+        error: (error) => {
+          console.error('Error eliminando orden:', error);
+          alert('Error al eliminar la orden. Intenta nuevamente.');
+        }
+      });
+    }
+  }
+
+
   abrirModalSimularPagos(): void {
     this.mostrarModalSimularPagos = true;
   }
@@ -460,36 +658,8 @@ export class DashboardClienteComponent {
     this.resetearFormularioPago();
   }
 
-  crearOrden(form: any): void {
-    if (form.valid) {
-      console.log('Nueva orden creada:', this.nuevaOrden);
-
-      const nuevoId = `ORD-${String(this.ordenesReparacion.length + 1).padStart(3, '0')}`;
-
-      const nuevaOrdenCompleta: OrdenReparacion = {
-        id: nuevoId,
-        equipo: `${this.nuevaOrden.marcaModelo}`,
-        problema: this.nuevaOrden.descripcionProblema,
-        estado: 'Recibido',
-        fechaEstimada: this.calcularFechaEstimada(),
-        estadoBadgeClass: 'bg-secondary text-white',
-        monto: Math.floor(Math.random() * 100000) + 30000 // Monto aleatorio entre 30k y 130k
-      };
-
-      this.ordenesReparacion.push(nuevaOrdenCompleta);
-
-      alert('¡Orden creada exitosamente! Se te asignó el número: ' + nuevoId);
-      this.cerrarModalCrearOrden();
-    } else {
-      this.markAllFieldsTouched(form);
-      alert('Por favor, corrige los errores en el formulario.');
-    }
-  }
-
   simularPago(form: any): void {
     if (this.isFormValidForPayment()) {
-      console.log('Simulación de pago:', this.simulacionPago);
-
       let mensaje = 'Simulación de pago exitosa!\n';
 
       if (this.simulacionPago.ordenSeleccionada) {
@@ -504,7 +674,6 @@ export class DashboardClienteComponent {
       alert(mensaje);
       this.cerrarModalSimularPagos();
     } else {
-      // Marcar campos como tocados para mostrar errores
       this.markAllFieldsTouched(form);
       alert('Por favor, selecciona una orden o ingresa un monto válido.');
     }
@@ -525,9 +694,13 @@ export class DashboardClienteComponent {
     };
   }
 
+  trackByOrderId(index: number, orden: Equipo): string {
+    return orden.id;
+  }
+
   private calcularFechaEstimada(): string {
     const fecha = new Date();
-    fecha.setDate(fecha.getDate() + Math.floor(Math.random() * 10) + 5); // Entre 5 y 15 días
+    fecha.setDate(fecha.getDate() + Math.floor(Math.random() * 10) + 5);
     return fecha.toLocaleDateString('es-CL');
   }
 }

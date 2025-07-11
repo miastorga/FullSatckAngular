@@ -1,6 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { EquiposService, EquipoTecnico } from '../../../services/equipos.service';
 
 @Component({
   selector: 'app-dashboard-tecnico',
@@ -221,14 +222,14 @@ import { FormsModule } from '@angular/forms';
               <p>Aquí puedes crear, editar o eliminar usuarios (clientes y técnicos).</p>
               <button class="btn btn-primary mb-3" (click)="crearNuevoUsuario()">Crear Nuevo Usuario</button>
               <ul class="list-group">
-                <li *ngFor="let usuario of usuarios" 
+                <!-- <li *ngFor="let usuario of usuarios" 
                     class="list-group-item d-flex justify-content-between align-items-center">
                   {{usuario.nombre}} ({{usuario.tipo}})
                   <span>
                     <button class="btn btn-sm btn-warning me-1" (click)="editarUsuario(usuario)">Editar</button>
                     <button class="btn btn-sm btn-danger" (click)="eliminarUsuario(usuario)">Eliminar</button>
                   </span>
-                </li>
+                </li> -->
               </ul>
             </div>
             <div class="modal-footer">
@@ -253,14 +254,14 @@ import { FormsModule } from '@angular/forms';
               <p>Administra los tipos de servicio de reparación ofrecidos.</p>
               <button class="btn btn-primary mb-3" (click)="agregarNuevoServicio()">Agregar Nuevo Servicio</button>
               <ul class="list-group">
-                <li *ngFor="let servicio of servicios" 
+                <!-- <li *ngFor="let servicio of servicios" 
                     class="list-group-item d-flex justify-content-between align-items-center">
                   {{servicio.nombre}}
                   <span>
                     <button class="btn btn-sm btn-warning me-1" (click)="editarServicio(servicio)">Editar</button>
                     <button class="btn btn-sm btn-danger" (click)="eliminarServicio(servicio)">Eliminar</button>
                   </span>
-                </li>
+                </li> -->
               </ul>
             </div>
             <div class="modal-footer">
@@ -285,14 +286,14 @@ import { FormsModule } from '@angular/forms';
               <p>Establece y ajusta los precios de los servicios y componentes.</p>
               <button class="btn btn-primary mb-3" (click)="agregarNuevoMonto()">Agregar Nuevo Monto</button>
               <ul class="list-group">
-                <li *ngFor="let monto of montos" 
+                <!-- <li *ngFor="let monto of montos" 
                     class="list-group-item d-flex justify-content-between align-items-center">
                   {{monto.descripcion}}: {{monto.precio}}
                   <span>
                     <button class="btn btn-sm btn-warning me-1" (click)="editarMonto(monto)">Editar</button>
                     <button class="btn btn-sm btn-danger" (click)="eliminarMonto(monto)">Eliminar</button>
                   </span>
-                </li>
+                </li> -->
               </ul>
             </div>
             <div class="modal-footer">
@@ -313,55 +314,30 @@ import { FormsModule } from '@angular/forms';
     }
   `]
 })
-export class DashboardTecnicoComponent {
+export class DashboardTecnicoComponent implements OnInit {
+
   activeModal: string | null = null;
   searchTerm: string = '';
   selectedOrden: string = '';
   nuevoEstado: string = '';
   comentariosTecnico: string = '';
 
-  // Datos de ejemplo
-  ordenes = [
-    {
-      id: 'ORD-001',
-      cliente: 'Juan Pérez',
-      equipo: 'iPhone 12',
-      problema: 'Pantalla rota',
-      estado: 'En Diagnóstico',
-      costo: '$85.000'
-    },
-    {
-      id: 'ORD-002',
-      cliente: 'Maria López',
-      equipo: 'Samsung S20',
-      problema: 'Problema de batería',
-      estado: 'En Reparación',
-      costo: '$50.000'
-    },
-    {
-      id: 'ORD-003',
-      cliente: 'Carlos Ruiz',
-      equipo: 'Xiaomi Redmi',
-      problema: 'No enciende',
-      estado: 'Listo para Retiro',
-      costo: '$60.000'
-    }
-  ];
+  equiposService = inject(EquiposService)
 
-  usuarios = [
-    { nombre: 'Juan Pérez', tipo: 'Cliente' },
-    { nombre: 'Dr. Tech', tipo: 'Técnico' }
-  ];
+  ordenes: EquipoTecnico[] = [];
 
-  servicios = [
-    { nombre: 'Cambio de Pantalla' },
-    { nombre: 'Reemplazo de Batería' }
-  ];
+  ngOnInit(): void {
+    this.loadEquipos()
+  }
 
-  montos = [
-    { descripcion: 'Pantalla iPhone 12', precio: '$85.000 CLP' },
-    { descripcion: 'Batería Samsung S20', precio: '$50.000 CLP' }
-  ];
+  loadEquipos() {
+    this.equiposService.getEquiposTecnico().subscribe({
+      next: (res) => {
+        console.log(res)
+        this.ordenes = res
+      }
+    })
+  }
 
   openModal(modalName: string) {
     this.activeModal = modalName;
