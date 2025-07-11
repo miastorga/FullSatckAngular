@@ -12,8 +12,8 @@ COPY . .
 
 RUN npm run build
 
-RUN ls -la dist/
+RUN echo "=== Estructura de dist ===" && ls -la dist/
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "serve -s dist/* -l 3000 --single"]
+CMD ["serve", "-s", "dist/tech-repair/browser", "-l", "3000", "--single"]
